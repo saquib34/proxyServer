@@ -10,9 +10,11 @@ app.get('/proxy', async (req, res) => {
   console.log(`🔁 Browsing: ${target}`);
 
   try {
-    const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+  const browser = await puppeteer.launch({
+  headless: true,
+  executablePath: '/opt/render/.cache/puppeteer/chrome/linux-13707151/chrome',
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
+});
 
     const page = await browser.newPage();
     await page.setUserAgent(
