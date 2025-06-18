@@ -14,5 +14,8 @@
     "express": "^5.1.0",
     "puppeteer": "^24.10.1",
     "request": "^2.88.2"
+  },
+  "puppeteer": {
+    "default_browser_revision": "13707151"
   }
 }
