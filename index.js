@@ -12,9 +12,10 @@ app.get('/proxy', async (req, res) => {
   try {
   const browser = await puppeteer.launch({
   headless: true,
-  executablePath: '/opt/render/.cache/puppeteer/chrome/linux-13707151/chrome',
+  executablePath: '/opt/render/.cache/puppeteer/chrome/linux-137.0.7151.70/chrome-linux64/chrome',
   args: ['--no-sandbox', '--disable-setuid-sandbox']
 });
+
 
     const page = await browser.newPage();
     await page.setUserAgent(
