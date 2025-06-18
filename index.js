@@ -1,39 +1,144 @@
+// server.js
 const express = require('express');
-const puppeteer = require('puppeteer-core');
+const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const request = require('request');
+const url = require('url');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
-app.get('/proxy', async (req, res) => {
-  const target = req.query.url;
-  if (!target) return res.status(400).send('Missing target URL');
+// Enable CORS for all routes
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: '*',
+  credentials: true
+}));
 
-  console.log(`🔁 Browsing: ${target}`);
+// Root route with usage instructions
+app.get('/', (req, res) => {
+  res.json({
+    message: 'V86 CORS Proxy Server',
+    usage: {
+      method1: 'https://your-app.onrender.com/proxy/https://google.com',
+      method2: 'Configure v86 browser to use this server as HTTP proxy',
+      status: 'Server is running'
+    },
+    examples: [
+      'https://your-app.onrender.com/proxy/https://google.com',
+      'https://your-app.onrender.com/proxy/http://example.com'
+    ]
+  });
+});
 
-  try {
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: '/opt/render/.cache/puppeteer/chrome/linux-137.0.7151.70/chrome-linux64/chrome',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Proxy endpoint - Method 1: URL parameter
+app.all('/proxy/*', (req, res) => {
+  const targetUrl = req.url.replace('/proxy/', '');
+  
+  if (!targetUrl) {
+    return res.status(400).json({ 
+      error: 'No target URL provided',
+      usage: 'https://your-app.onrender.com/proxy/https://google.com'
     });
-
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-      '(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-    );
-
-    await page.goto(target, { waitUntil: 'networkidle2', timeout: 20000 });
-    const content = await page.content();
-    await browser.close();
-
-    res.send(content);
-  } catch (err) {
-    console.error('❌ Puppeteer error:', err.message);
-    res.status(500).send('Failed to fetch page.');
   }
+
+  console.log(`Proxying ${req.method} request to: ${targetUrl}`);
+
+  const options = {
+    url: targetUrl,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: url.parse(targetUrl).host,
+      // Remove problematic headers
+      origin: undefined,
+      referer: undefined,
+      'x-forwarded-for': undefined,
+      'x-forwarded-proto': undefined,
+      'x-forwarded-host': undefined
+    },
+    followRedirect: true,
+    timeout: 30000
+  };
+
+  // Handle request body for POST/PUT
+  if (req.method === 'POST' || req.method === 'PUT') {
+    options.body = req.body;
+  }
+
+  request(options)
+    .on('error', (err) => {
+      console.error('Proxy error:', err);
+      res.status(500).json({ 
+        error: 'Proxy request failed', 
+        details: err.message 
+      });
+    })
+    .pipe(res);
+});
+
+// Proxy endpoint - Method 2: Query parameter
+app.all('/fetch', (req, res) => {
+  const targetUrl = req.query.url;
+  
+  if (!targetUrl) {
+    return res.status(400).json({ 
+      error: 'No target URL provided',
+      usage: 'https://your-app.onrender.com/fetch?url=https://google.com'
+    });
+  }
+
+  console.log(`Fetching: ${targetUrl}`);
+
+  const options = {
+    url: targetUrl,
+    method: req.method,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; V86-CORS-Proxy)',
+      ...req.headers,
+      host: url.parse(targetUrl).host,
+      origin: undefined,
+      referer: undefined
+    },
+    followRedirect: true,
+    timeout: 30000
+  };
+
+  request(options)
+    .on('error', (err) => {
+      console.error('Fetch error:', err);
+      res.status(500).json({ 
+        error: 'Fetch request failed', 
+        details: err.message 
+      });
+    })
+    .pipe(res);
+});
+
+// Handle 404s
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Not found',
+    message: 'Use /proxy/[URL] or /fetch?url=[URL] endpoints'
+  });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message
+  });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Puppeteer Proxy running on http://localhost:${PORT}`);
+  console.log(`V86 CORS Proxy server running on port ${PORT}`);
+  console.log(`Usage:`);
 });
