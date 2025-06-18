@@ -1,7 +1,8 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 const app = express();
+const PORT = process.env.PORT || 8080;
 
 app.get('/proxy', async (req, res) => {
   const target = req.query.url;
@@ -10,14 +11,9 @@ app.get('/proxy', async (req, res) => {
   console.log(`🔁 Browsing: ${target}`);
 
   try {
-    // Dynamically fetch the right Chrome executable path
-    const browserFetcher = puppeteer.createBrowserFetcher();
-    const revisionInfo = await browserFetcher.download('137.0.7151.70'); // match installed version
-    const executablePath = revisionInfo.executablePath;
-
     const browser = await puppeteer.launch({
-      headless: true,
-      executablePath,
+      headless: 'new',
+      executablePath: '/opt/render/.cache/puppeteer/chrome/linux-137.0.7151.70/chrome-linux64/chrome',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
@@ -38,6 +34,6 @@ app.get('/proxy', async (req, res) => {
   }
 });
 
-app.listen(8080, () => {
-  console.log('🚀 Puppeteer Proxy running on http://localhost:8080');
+app.listen(PORT, () => {
+  console.log(`🚀 Puppeteer Proxy running on http://localhost:${PORT}`);
 });
