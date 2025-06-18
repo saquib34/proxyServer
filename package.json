@@ -13,8 +13,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "http-proxy-middleware": "^2.0.6",
-    "request": "^2.88.2"
+    "axios": "^1.6.0"
   },
   "keywords": ["cors", "proxy", "v86", "emulator"],
   "author": "Your Name",
