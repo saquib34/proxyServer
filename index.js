@@ -55,7 +55,9 @@ app.get('/', async (req, res) => {
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate',
                 'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1'
+                'Upgrade-Insecure-Requests': '1',
+                'Origin': 'https://cors.sh',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             timeout: 30000,
             maxRedirects: 10,
