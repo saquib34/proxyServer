@@ -3,7 +3,74 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Add CORS middleware for all routes
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+        return;
+    }
+    
+    next();
+});
+
 app.use(express.static('public'));
+
+// API endpoint for extension (returns proper content type)
+app.get('/api/proxy', async (req, res) => {
+    const targetUrl = req.query.url;
+    
+    if (!targetUrl) {
+        return res.status(400).json({ error: 'URL parameter is required' });
+    }
+    
+    try {
+        // Add protocol if missing - using HTTP like your example
+        let fullUrl = targetUrl;
+        if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+            fullUrl = 'http://' + targetUrl;
+        }
+        
+        // Use proxy.cors.sh in background with exact format
+        const proxyUrl = `https://proxy.cors.sh/${fullUrl}`;
+        console.log('API Fetching:', proxyUrl);
+        
+        const response = await axios.get(proxyUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': '*/*',
+                'Origin': 'https://cors.sh',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            timeout: 30000,
+            responseType: 'arraybuffer', // Handle binary data
+            validateStatus: function (status) {
+                return status >= 200 && status < 600;
+            }
+        });
+        
+        // Set proper headers
+        const contentType = response.headers['content-type'] || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        
+        // Send the raw response
+        res.send(response.data);
+        
+    } catch (error) {
+        console.error('API Proxy error:', error.message);
+        res.status(500).json({ 
+            error: 'Failed to fetch URL', 
+            details: error.message,
+            url: targetUrl 
+        });
+    }
+});
 
 // Main proxy route
 app.get('/', async (req, res) => {
@@ -67,8 +134,13 @@ app.get('/', async (req, res) => {
         });
         
         let html = response.data;
-        const baseUrl = new URL(fullUrl).origin;
+        const baseUrl = new URL(finalUrl).origin;
         const currentHost = req.get('host');
+        
+        // Set proper headers for the response
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         
         // Simple URL rewriting for media assets
         html = html.replace(/src=["']([^"']+)["']/gi, (match, url) => {
