@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V86 Emulator with Command Capture</title>
+    <script src="../build/libv86.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        #screen_container {
+            background: #000;
+            border: 1px solid #555;
+        }
+        
+        #screen_container div {
+            white-space: pre; 
+            font: 14px monospace; 
+            line-height: 14px;
+        }
+
+        #screen_container canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>V86 Emulator</h1>
+    
+    <div id="screen_container">
+        <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+        <canvas style="display: none"></canvas>
+    </div>
+
+    <script>
+        var emulator;
+        var terminalData = "";
+        
+        window.onload = function() {
+            emulator = new V86({
+                wasm_path: "../build/v86.wasm",
+                memory_size: 256 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                screen_container: document.getElementById("screen_container"),
+                bios: { url: "../bios/seabios.bin" },
+                vga_bios: { url: "../bios/vgabios.bin" },
+                cdrom: { url: "../images/linux4.iso" },
+                autostart: true
+            });
+            
+            // Capture all serial output (commands and results)
+            emulator.add_listener("serial0-output-byte", function(byte) {
+                var char = String.fromCharCode(byte);
+                if (char === "\r") {
+                    return;
+                }
+                
+                terminalData += char;
+                
+                // Log complete lines
+                if (char === "\n") {
+                    var lines = terminalData.split('\n');
+                    var lastLine = lines[lines.length - 2]; // -2 because last is empty after split
+                    
+                    if (lastLine && lastLine.trim()) {
+                        console.log('Terminal:', lastLine);
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html>
